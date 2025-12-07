@@ -1,0 +1,174 @@
+/* src/styles.css */
+:root{
+  --bg:#f1f6f9;
+  --panel:#fff;
+  --primary:#2b7cff;
+  --muted:#6b7280;
+  --danger:#b91c1c;
+}
+
+*{box-sizing:border-box}
+body{margin:0;font-family:Segoe UI, Roboto, Arial;background:var(--bg);color:#0b1220}
+.app-page{max-width:1100px;margin:22px auto;padding:18px}
+.app-header{margin-bottom:12px}
+.app-title{font-size:30px;margin:0}
+.app-sub{color:var(--muted);margin-top:6px}
+
+/* panels */
+.panel{background:var(--panel);border-radius:10px;padding:18px;margin-bottom:16px;box-shadow:0 8px 24px rgba(8,30,66,0.04)}
+.top-panel{background:#df9f9f;border-radius:12px}
+
+/* search */
+.search-row{display:flex;gap:8px;margin-bottom:12px}
+.input{padding:10px;border-radius:10px;border:1px solid #e6e9ef;min-width:0}
+.input-search{width:320px;}
+
+/* card list */
+.card-list{display:flex;flex-direction:column;gap:12px}
+.card{display:flex;justify-content:space-between;align-items:center;padding:14px;background:var(--panel);border-radius:8px;box-shadow:0 6px 14px rgba(2,6,23,0.03)}
+.card-left{display:flex;gap:12px;align-items:center;min-width:0}
+.card-icon{width:56px;height:56px;border-radius:10px;background:#f3f7fb;display:flex;align-items:center;justify-content:center;font-size:20px}
+.card-info{overflow:hidden}
+.link-name{color:var(--primary);font-weight:700;text-decoration:none;cursor:pointer;display:inline-block}
+.link-name:hover{text-decoration:underline}
+.card-meta{color:var(--muted);margin-top:6px;font-size:13px}
+
+/* card actions */
+.card-actions{display:flex;flex-direction:column;gap:8px;flex:0 0 140px;align-items:flex-end}
+.btn{padding:8px 12px;border-radius:10px;border:1px solid #e6e9ef;background:#fff;cursor:pointer}
+.btn-primary{background:linear-gradient(90deg,var(--primary),#4f6fff);color:#fff;border:none}
+.btn-outline{background:#fff;border:1px solid #e6e9ef}
+
+/* table */
+.table-wrap{margin-top:8px}
+.links-table{width:100%;border-collapse:collapse}
+.links-table th, .links-table td{padding:12px;border-bottom:1px solid #eef2f7;text-align:left}
+.table-link{color:var(--primary);text-decoration:none;font-weight:700}
+.table-link:hover{text-decoration:underline}
+.table-sub{color:var(--muted);margin-top:6px;font-size:13px}
+.empty-row{text-align:center;padding:14px;color:var(--muted)}
+
+/* form */
+.form-create{display:grid;grid-template-columns:1fr 1fr 220px;gap:12px;align-items:end}
+.form-row{display:flex;flex-direction:column}
+.form-label{font-size:13px;color:var(--muted);margin-bottom:6px}
+.form-actions{display:flex;gap:8px;align-items:center;margin-top:8px}
+.form-message{color:var(--muted);margin-top:8px}
+
+/* small buttons */
+.btn-small{padding:6px 8px;border-radius:10px;border:1px solid #e6e9ef;background:#fff}
+.btn-danger{background:#fee2e2;color:var(--danger);border:none;padding:6px 8px;border-radius:8px}
+
+/* toast */
+.toast{position:fixed;right:18px;top:18px;background:rgba(0,0,0,0.85);color:#e6ffe6;padding:10px 16px;border-radius:10px;z-index:9999;box-shadow:0 8px 24px rgba(0,0,0,0.45)}
+
+/* --------------------------
+   Compact / Ultra-minimal UI
+   For mobile-first compact look
+   Paste at the END of src/styles.css
+   -------------------------- */
+@media (max-width: 480px) {
+  /* card: vertical stacking but very compact */
+  .card {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;                 /* small vertical gap */
+    padding: 8px;             /* smaller padding */
+    border-radius: 8px;
+    min-height: auto;
+  }
+
+  /* left area (icon + text) */
+  .card-left {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    width: 100%;
+  }
+
+  /* smaller icon */
+  .card-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* title (clickable) smaller and denser */
+  .link-name {
+    font-size: 15px;
+    font-weight: 700;
+    line-height: 1.15;
+    display: inline-block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: calc(100% - 56px); /* leave room for icon */
+  }
+
+  /* meta text smaller */
+  .card-meta {
+    font-size: 12px;
+    color: #6b7280;
+    margin-top: 4px;
+  }
+
+  /* actions: inline row and compact buttons */
+  .card-actions {
+    display: flex !important;
+    flex-direction: row !important;
+    gap: 8px;
+    width: 100%;
+    justify-content: flex-start;
+    margin-top: 6px;
+  }
+
+  .btn, .btn-small {
+    padding: 6px 10px;
+    border-radius: 8px;
+    font-size: 13px;
+  }
+
+  .btn-primary {
+    padding: 6px 10px;
+    font-size: 13px;
+  }
+
+  /* reduce card-list vertical spacing */
+  .card-list { gap: 8px; }
+
+  /* tighten panel padding on mobile */
+  .panel, .top-panel {
+    padding: 12px;
+  }
+
+  /* search input smaller */
+  .input-search {
+    width: 65%;
+    padding: 8px;
+    font-size: 14px;
+  }
+
+  /* table elements (if still visible on mobile) */
+  .links-table th, .links-table td {
+    padding: 8px;
+    font-size: 13px;
+  }
+
+  .table-link { font-size: 14px; }
+
+  /* smaller toast */
+  .toast { font-size: 13px; padding: 8px 12px; right:12px; top:12px; }
+}
+
+/* Slightly tighter default (desktop) spacing too — optional */
+@media (min-width: 481px) {
+  .card { padding: 12px; gap: 10px; }
+  .card-icon { width:48px; height:48px; font-size:18px; }
+  .btn, .btn-small { font-size:14px; padding:7px 10px; }
+  .link-name { font-size:17px; }
+}
