@@ -149,7 +149,7 @@ export default function Dashboard() {
 
       <header className="app-header" style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
         <div>
-          <h1 className="app-title">TinyLink_All_Links_NetFier❤️‍🔥</h1>
+          <h1 className="app-title">All_Links_NetFier❤️‍🔥</h1>
           <div className="app-sub">Click name to open — Copy gives short link</div>
         </div>
 
