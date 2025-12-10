@@ -1,62 +1,93 @@
 // src/Dashboard.jsx
 import React, { useEffect, useState } from "react";
-import { loadLinks, saveLinks, generateCode } from "./storage";
 import "./styles.css";
 
+/*-------------------------------------------------------------
+  BACKEND BASE URL  
+  Change this when deploying (Netlify → Spring backend hosting)
+--------------------------------------------------------------*/
+const API_BASE = "http://localhost:8080/api/links";
+
+// increment click count for a given id on backend
+// eslint-disable-next-line no-unused-vars
+async function incrementClick(id) {
+  if (!id) return null;
+  try {
+    const res = await fetch(`${API_BASE}/${id}/click`, {
+      method: "POST",               // your backend used POST /{id}/click in Postman
+      headers: { "Content-Type": "application/json" },
+    });
+    if (!res.ok) {
+      console.warn("incrementClick: backend returned", res.status);
+      return null;
+    }
+    const json = await res.json();
+    return json;
+  } catch (err) {
+    console.error("incrementClick error:", err);
+    return null;
+  }
+}
+
+
+/* Format date safely */
 function fmt(dt) {
-  try { return new Date(dt).toLocaleString(); } catch { return "-"; }
+  try { return new Date(dt).toLocaleString(); }
+  catch { return "-"; }
 }
 
 export default function Dashboard() {
-  // Admin secret (frontend-only). Change this to your preferred secret.
+  // Admin login secret (only to show/hide admin panel)
   const ADMIN_SECRET = "DileepNiki@2026";
 
-  // App state
   const [links, setLinks] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // create form
+  // Create form
   const [title, setTitle] = useState("");
   const [targetUrl, setTargetUrl] = useState("");
-  const [customCode, setCustomCode] = useState("");
   const [message, setMessage] = useState("");
 
-  // public filter
+  // Search
   const [filter, setFilter] = useState("");
 
-  // admin UI
-  const [isAdmin, setIsAdmin] = useState(localStorage.getItem("all_links_admin") === "1");
+  // Admin state
+  const [isAdmin, setIsAdmin] = useState(
+    localStorage.getItem("all_links_admin") === "1"
+  );
+
   const [toast, setToast] = useState("");
 
-  useEffect(() => {
-    async function load() {
-      setLoading(true);
-      const data = await loadLinks();
-      setLinks(Array.isArray(data) ? data : []);
-      setLoading(false);
+  /*---------------------------------------------------------
+    LOAD ALL LINKS FROM BACKEND
+  ----------------------------------------------------------*/
+  async function loadFromBackend() {
+    setLoading(true);
+    try {
+      const res = await fetch(API_BASE);
+      const data = await res.json();
+      setLinks(data);
+    } catch (err) {
+      console.error("Error loading:", err);
     }
-    load();
+    setLoading(false);
+  }
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadFromBackend();
   }, []);
 
-  function persist(next) {
-    setLinks(next);
-    saveLinks(next);
-  }
-
-
-  function matchesFilter(item) {
-    if (!filter) return true;
-    return item.title.toLowerCase().includes(filter.toLowerCase());
-  }
-
-  // Admin front-end sign in (prompt). This is NOT secure for production.
+  /*---------------------------------------------------------
+    ADMIN LOGIN HANDLING
+  ----------------------------------------------------------*/
   function signInFrontEnd() {
     const attempt = prompt("Enter admin secret:");
     if (!attempt) return;
     if (attempt === ADMIN_SECRET) {
       localStorage.setItem("all_links_admin", "1");
       setIsAdmin(true);
-      setToast("Signed in as admin (frontend)");
+      setToast("Admin logged in");
     } else {
       alert("Wrong secret");
     }
@@ -68,88 +99,116 @@ export default function Dashboard() {
     setToast("Signed out");
   }
 
-  // Create new short link (admin)
-  function handleCreate(e) {
-    e && e.preventDefault();
+  /*---------------------------------------------------------
+     CREATE NEW LINK (POST → BACKEND)
+  ----------------------------------------------------------*/
+  async function handleCreate(e) {
+    e.preventDefault();
     setMessage("");
-    const t = (title || "").trim();
-    const url = (targetUrl || "").trim();
-    if (!t) { setMessage("Enter title"); return; }
-    if (!url) { setMessage("Enter target URL"); return; }
-    try { new URL(url); } catch { setMessage("Invalid URL (include http:// or https://)"); return; }
 
-    let code = (customCode || "").trim() || generateCode(6);
-    // ensure unique
-    let attempts = 0;
-    while (links.some(l => l.code === code) && attempts < 10) {
-      code = generateCode(6);
-      attempts++;
-    }
-    if (links.some(l => l.code === code)) { setMessage("Could not generate unique code"); return; }
+    if (!title.trim()) return setMessage("Enter title");
+    if (!targetUrl.trim()) return setMessage("Enter URL");
 
-    const newItem = {
-      code,
-      title: t,
-      thumbnail: "",
-      target_url: url,
-      posted_at: new Date().toISOString(),
-      total_clicks: 0
-    };
-    const next = [newItem, ...links];
-    persist(next);
-    setTitle(""); setTargetUrl(""); setCustomCode("");
-    setMessage("Created: " + code);
-    setToast("Created: " + code);
-  }
-
-  // Delete
-  function handleDelete(code) {
-    if (!confirm("Delete this link?")) return;
-    const next = links.filter(l => l.code !== code);
-    persist(next);
-    setToast("Deleted");
-  }
-
-  // Apply: increment locally and open target
-  function handleApply(code) {
-    const idx = links.findIndex(l => l.code === code);
-    if (idx === -1) return;
-    const item = { ...links[idx] };
-    item.total_clicks = (item.total_clicks || 0) + 1;
-    item.last_clicked = new Date().toISOString();
-    const next = links.slice();
-    next[idx] = item;
-    persist(next);
-    window.open(item.target_url, "_blank");
-  }
-
-  // Copy short link
-  function handleCopy(code) {
-    const short = window.location.origin + "/" + code;
     try {
-      navigator.clipboard.writeText(short);
-      setToast("Copied: " + short);
+      new URL(targetUrl);
     } catch {
-      prompt("Copy this short link", short);
+      return setMessage("Invalid URL");
+    }
+
+    const payload = { title, targetUrl };
+
+    try {
+      const res = await fetch(API_BASE, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (res.ok) {
+        setMessage("Created successfully!");
+        setToast("Created!");
+        setTitle("");
+        setTargetUrl("");
+        loadFromBackend();
+      }
+    } catch (err) {
+      console.error("Create error:", err);
     }
   }
 
-  // Refresh seed (clear local copy and re-load from public/links.json)
-  async function refreshFromSeed() {
-    localStorage.removeItem("all_links_netfier_links_v1");
-    const data = await loadLinks();
-    setLinks(Array.isArray(data) ? data : []);
-    setToast("Refreshed from seed");
+  /*---------------------------------------------------------
+     DELETE A LINK (DELETE → BACKEND)
+  ----------------------------------------------------------*/
+  async function handleDelete(id) {
+    if (!confirm("Delete this link?")) return;
+
+    await fetch(`${API_BASE}/${id}`, { method: "DELETE" });
+    setToast("Deleted");
+    loadFromBackend();
   }
 
+/*---------------------------------------------------------
+   APPLY BUTTON → Update click count + open link (improved)
+   Drop-in replacement for the existing handleApply.
+----------------------------------------------------------*/
+async function handleApply(item) {
+  if (!item || !item.id) return;
+
+  try {
+    // 1) increment click on backend and wait a short time to ensure backend records it
+    //    (we still open the link even if increment fails)
+    await incrementClick(item.id);
+
+    // 2) open destination (use same logic you currently prefer)
+    const dest = item.targetUrl && item.targetUrl.trim()
+      ? item.targetUrl.trim()
+      : window.location.origin + "/" + item.id;
+
+    // open in new tab (if you want same-tab change _blank -> _self)
+    window.open(dest, "_blank");
+  } catch (err) {
+    console.error("handleApply error:", err);
+    // still open link if error
+    const fallback = item.targetUrl || (window.location.origin + "/" + item.id);
+    window.open(fallback, "_blank");
+  } finally {
+    // refresh UI counts (non-blocking)
+    // use your existing function name that refreshes list (e.g. loadFromBackend() or fetchAllLinks())
+    // Replace fetchAllLinks() below with your actual fetch function if different.
+    // eslint-disable-next-line no-undef
+    try { fetchAllLinks(); } catch { /* ignore */ }
+  }
+}
+
+
+  /*---------------------------------------------------------
+    COPY SHORT LINK
+  ----------------------------------------------------------*/
+  function handleCopy(id) {
+    const link = window.location.origin + "/" + id;
+    navigator.clipboard.writeText(link);
+    setToast("Copied: " + link);
+  }
+
+  /* FILTERING */
+  function matchesFilter(item) {
+    if (!filter) return true;
+    return item.title.toLowerCase().includes(filter.toLowerCase());
+  }
+
+  /*---------------------------------------------------------
+     UI STARTS HERE
+  ----------------------------------------------------------*/
   return (
     <div className="app-page">
-      {/* toast */}
+
+      {/* Toast */}
       {toast && <div className="toast">{toast}</div>}
 
-      <header className="app-header" style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
+      {/* HEADER */}
+      <header className="app-header" style={{ display: "flex", justifyContent: "space-between" }}>
         <div>
-          <h1 className="app-title">TinyLink_All_Links_NetFier❤️‍🔥</h1>
+          <h1 className="app-title">TinyLink_All_Links_NetFier 🦁</h1>
           <div className="app-sub">Click name to open — Copy gives short link</div>
         </div>
 
@@ -162,104 +221,133 @@ export default function Dashboard() {
         </div>
       </header>
 
-      {/* Click & Use (public) */}
+      {/* ---------------- PUBLIC LIST SECTION ---------------- */}
       <section className="panel top-panel">
         <h2 className="panel-title">Click & Use This Links</h2>
 
         <div className="search-row">
-          <input className="input input-search" placeholder="Search by title..." value={filter} onChange={e=>setFilter(e.target.value)} />
-          <button className="btn btn-small" onClick={()=>setFilter('')}>Clear</button>
+          <input
+            className="input input-search"
+            placeholder="Search by title..."
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+          />
+          <button className="btn btn-small" onClick={() => setFilter("")}>Clear</button>
         </div>
 
-        {loading ? <div className="loader">Loading…</div> : (
-          links.filter(matchesFilter).length === 0 ? (
-            <div className="empty">No links available</div>
-          ) : (
-            <div className="card-list">
-              {links.filter(matchesFilter).map(item => (
-                <div className="card" key={item.code}>
-                  <div className="card-left">
-                    <div className="card-icon">🔗</div>
-                    <div className="card-info">
-                      <a className="link-name" href={item.target_url} onClick={(e)=>{ e.preventDefault(); handleApply(item.code); }} title={item.title}>
-                        {item.title}
-                      </a>
-                      <div className="card-meta">Created: {fmt(item.posted_at)}</div>
-                    </div>
-                  </div>
-
-                  <div className="card-actions">
-                    <button className="btn btn-primary" onClick={()=>handleApply(item.code)}>Apply</button>
-                
+        {loading ? (
+          <div className="loader">Loading…</div>
+        ) : (
+          <div className="card-list">
+            {links.filter(matchesFilter).map((item) => (
+              <div className="card" key={item.id}>
+                <div className="card-left">
+                  <div className="card-icon">🔗</div>
+                  <div className="card-info">
+                    <a
+                      className="link-name"
+                      href="#"
+                      onClick={(e) => { e.preventDefault(); handleApply(item); }}
+                    >
+                      {item.title}
+                    </a>
+                    <div className="card-meta">Created: {fmt(item.createdAt)}</div>
                   </div>
                 </div>
-              ))}
-            </div>
-          )
+
+                <div className="card-actions">
+                  <button className="btn btn-primary" onClick={() => handleApply(item)}>Apply</button>
+                </div>
+              </div>
+            ))}
+          </div>
         )}
       </section>
 
-      {/* Admin-only: All Links + Create */}
+      {/* ---------------- ADMIN SECTION ---------------- */}
       {isAdmin && (
         <>
+          {/* TABLE VIEW */}
           <section className="panel">
-            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-              <h2 className="panel-title">All Links</h2>
-              <div>
-                <button className="btn btn-small" onClick={refreshFromSeed}>Refresh Seed</button>
-              </div>
-            </div>
+            <h2 className="panel-title">All Links</h2>
 
             <div className="table-wrap">
               <table className="links-table">
                 <thead>
-                  <tr><th>Title</th><th>Clicks</th><th>Created</th><th>Last Clicked</th><th>Actions</th></tr>
+                  <tr>
+                    <th>Title</th>
+                    <th>Clicks</th>
+                    <th>Created</th>
+                    <th>Last Clicked</th>
+                    <th>Actions</th>
+                  </tr>
                 </thead>
+
                 <tbody>
-                  {links.map(item=>(
-                    <tr key={item.code}>
+                  {links.map((item) => (
+                    <tr key={item.id}>
                       <td>
-                        <a className="table-link" href={item.target_url} onClick={(e)=>{ e.preventDefault(); handleApply(item.code); }}>{item.title}</a>
-                        <div className="table-sub">Code: {item.code}</div>
+                        {item.title}
                       </td>
-                      <td>{item.total_clicks||0}</td>
-                      <td>{fmt(item.posted_at)}</td>
-                      <td>{fmt(item.last_clicked)}</td>
+                      <td>{item.clicks}</td>
+                      <td>{fmt(item.createdAt)}</td>
+                      <td>{fmt(item.lastClicked)}</td>
+
                       <td>
-                        <button className="btn btn-small" onClick={()=>handleCopy(item.code)}>Copy</button>
-                        <button className="btn btn-danger btn-small" onClick={()=>handleDelete(item.code)}>Delete</button>
+                        <button className="btn btn-small" onClick={() => handleCopy(item.id)}>Copy</button>
+                        <button className="btn btn-danger btn-small" onClick={() => handleDelete(item.id)}>Delete</button>
                       </td>
                     </tr>
                   ))}
                 </tbody>
+
               </table>
             </div>
           </section>
 
+          {/* CREATE FORM */}
           <section className="panel">
             <h2 className="panel-title">Create New Short Name</h2>
+
             <form className="form-create" onSubmit={handleCreate}>
               <div className="form-row">
                 <label className="form-label">Title</label>
-                <input className="input" value={title} onChange={e=>setTitle(e.target.value)} placeholder="e.g. SBI SO 2025" />
+                <input
+                  className="input"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="e.g. SBI SO 2025"
+                />
               </div>
+
               <div className="form-row">
                 <label className="form-label">Target URL</label>
-                <input className="input" value={targetUrl} onChange={e=>setTargetUrl(e.target.value)} placeholder="https://example.com/..." />
+                <input
+                  className="input"
+                  value={targetUrl}
+                  onChange={(e) => setTargetUrl(e.target.value)}
+                  placeholder="https://example.com/..."
+                />
               </div>
-               
 
               <div className="form-actions">
                 <button className="btn btn-primary" type="submit">Create</button>
-                <button type="button" className="btn" onClick={()=>{ setTitle(''); setTargetUrl(''); setCustomCode(''); setMessage(''); }}>Clear</button>
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={() => { setTitle(""); setTargetUrl(""); setMessage(""); }}
+                >
+                  Clear
+                </button>
               </div>
+
               <div className="form-message">{message}</div>
             </form>
           </section>
         </>
       )}
 
-      <footer className="app-footer">Made with ❤️ — All_Links_Netfier</footer>
+      <footer className="app-footer">Made with ❤️ — All_Links_NetFier</footer>
     </div>
   );
 }
