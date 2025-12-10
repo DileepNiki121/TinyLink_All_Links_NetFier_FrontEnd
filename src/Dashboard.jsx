@@ -148,8 +148,8 @@ export default function Dashboard() {
   }
 
 /*---------------------------------------------------------
-   APPLY BUTTON → Update click count + open link (improved)
-   Drop-in replacement for the existing handleApply.
+  APPLY BUTTON → Update click count + open link (improved)
+  Drop-in replacement for the existing handleApply.
 ----------------------------------------------------------*/
 async function handleApply(item) {
   if (!item || !item.id) return;
@@ -208,7 +208,7 @@ async function handleApply(item) {
       {/* HEADER */}
       <header className="app-header" style={{ display: "flex", justifyContent: "space-between" }}>
         <div>
-          <h1 className="app-title">TinyLink_All_Links_NetFier 🦁</h1>
+          <h1 className="app-title">TinyLink_All_Links_NetFier❤️‍🔥</h1>
           <div className="app-sub">Click name to open — Copy gives short link</div>
         </div>
 
