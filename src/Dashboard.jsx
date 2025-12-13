@@ -3,13 +3,13 @@ import React, { useEffect, useState } from "react";
 import "./styles.css";
 
 /*-------------------------------------------------------------
-  BACKEND BASE URL  
+  BACKEND BASE URL
   Change this when deploying (Netlify → Spring backend hosting)
 --------------------------------------------------------------*/
-const API_BASE = "http://localhost:8080/api/links";
+const API_BASE = "https://tinylink-alllinks-netfier-backend.onrender.com/api/links";
 
 // increment click count for a given id on backend
-// eslint-disable-next-line no-unused-vars
+ 
 async function incrementClick(id) {
   if (!id) return null;
   try {
@@ -74,7 +74,6 @@ export default function Dashboard() {
   }
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadFromBackend();
   }, []);
 
@@ -208,7 +207,7 @@ async function handleApply(item) {
       {/* HEADER */}
       <header className="app-header" style={{ display: "flex", justifyContent: "space-between" }}>
         <div>
-          <h1 className="app-title">TinyLink_All_Links_NetFier❤️‍🔥</h1>
+          <h1 className="app-title">All_Links_NetFier🦁</h1>
           <div className="app-sub">Click name to open — Copy gives short link</div>
         </div>
 
