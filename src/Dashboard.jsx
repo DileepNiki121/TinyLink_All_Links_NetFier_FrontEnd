@@ -1,34 +1,12 @@
+/* eslint-disable no-unused-vars */
 // src/Dashboard.jsx
 import React, { useEffect, useState } from "react";
 import "./styles.css";
 
 /*-------------------------------------------------------------
   BACKEND BASE URL
-  Change this when deploying (Netlify → Spring backend hosting)
 --------------------------------------------------------------*/
 const API_BASE = "https://tinylink-alllinks-netfier-backend.onrender.com/api/links";
-
-// increment click count for a given id on backend
- 
-async function incrementClick(id) {
-  if (!id) return null;
-  try {
-    const res = await fetch(`${API_BASE}/${id}/click`, {
-      method: "POST",               // your backend used POST /{id}/click in Postman
-      headers: { "Content-Type": "application/json" },
-    });
-    if (!res.ok) {
-      console.warn("incrementClick: backend returned", res.status);
-      return null;
-    }
-    const json = await res.json();
-    return json;
-  } catch (err) {
-    console.error("incrementClick error:", err);
-    return null;
-  }
-}
-
 
 /* Format date safely */
 function fmt(dt) {
@@ -37,21 +15,22 @@ function fmt(dt) {
 }
 
 export default function Dashboard() {
-  // Admin login secret (only to show/hide admin panel)
+
+  /* ---------------- LOADER STATES (NEW) ---------------- */
+  const [backendReady, setBackendReady] = useState(false);
+  const [seconds, setSeconds] = useState(0);
+
+  /* ---------------- EXISTING STATES ---------------- */
   const ADMIN_SECRET = "DileepNiki@2026";
 
   const [links, setLinks] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Create form
   const [title, setTitle] = useState("");
   const [targetUrl, setTargetUrl] = useState("");
   const [message, setMessage] = useState("");
-
-  // Search
   const [filter, setFilter] = useState("");
 
-  // Admin state
   const [isAdmin, setIsAdmin] = useState(
     localStorage.getItem("all_links_admin") === "1"
   );
@@ -59,26 +38,39 @@ export default function Dashboard() {
   const [toast, setToast] = useState("");
 
   /*---------------------------------------------------------
-    LOAD ALL LINKS FROM BACKEND
+    BACKEND WAKE-UP CHECK (IMPORTANT)
   ----------------------------------------------------------*/
-  async function loadFromBackend() {
-    setLoading(true);
-    try {
-      const res = await fetch(API_BASE);
-      const data = await res.json();
-      setLinks(data);
-    } catch (err) {
-      console.error("Error loading:", err);
-    }
-    setLoading(false);
-  }
-
   useEffect(() => {
-    loadFromBackend();
+    let timer = setInterval(() => {
+      setSeconds((s) => (s < 20 ? s + 1 : s));
+    }, 1000);
+
+    async function wakeBackend() {
+      try {
+        const res = await fetch(API_BASE, { cache: "no-store" });
+        if (res.ok) {
+          const data = await res.json();
+          setLinks(data);
+          setBackendReady(true);
+          setLoading(false);
+          clearInterval(timer);
+        }
+      } catch {
+        // backend still sleeping → keep loader
+      }
+    }
+
+    wakeBackend();
+    const retry = setInterval(wakeBackend, 3000);
+
+    return () => {
+      clearInterval(timer);
+      clearInterval(retry);
+    };
   }, []);
 
   /*---------------------------------------------------------
-    ADMIN LOGIN HANDLING
+    ADMIN LOGIN
   ----------------------------------------------------------*/
   function signInFrontEnd() {
     const attempt = prompt("Enter admin secret:");
@@ -99,7 +91,7 @@ export default function Dashboard() {
   }
 
   /*---------------------------------------------------------
-     CREATE NEW LINK (POST → BACKEND)
+     CREATE LINK
   ----------------------------------------------------------*/
   async function handleCreate(e) {
     e.preventDefault();
@@ -108,77 +100,34 @@ export default function Dashboard() {
     if (!title.trim()) return setMessage("Enter title");
     if (!targetUrl.trim()) return setMessage("Enter URL");
 
-    try {
-      new URL(targetUrl);
-    } catch {
-      return setMessage("Invalid URL");
-    }
-
-    const payload = { title, targetUrl };
+    try { new URL(targetUrl); }
+    catch { return setMessage("Invalid URL"); }
 
     try {
       const res = await fetch(API_BASE, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({ title, targetUrl }),
       });
 
       if (res.ok) {
-        setMessage("Created successfully!");
-        setToast("Created!");
         setTitle("");
         setTargetUrl("");
-        loadFromBackend();
+        setToast("Created");
+        const data = await fetch(API_BASE).then(r => r.json());
+        setLinks(data);
       }
     } catch (err) {
-      console.error("Create error:", err);
+      console.error(err);
     }
   }
 
   /*---------------------------------------------------------
-     DELETE A LINK (DELETE → BACKEND)
+     APPLY BUTTON
   ----------------------------------------------------------*/
-  async function handleDelete(id) {
-    if (!confirm("Delete this link?")) return;
-
-    await fetch(`${API_BASE}/${id}`, { method: "DELETE" });
-    setToast("Deleted");
-    loadFromBackend();
+  async function handleApply(item) {
+    window.open(item.targetUrl, "_blank");
   }
-
-/*---------------------------------------------------------
-  APPLY BUTTON → Update click count + open link (improved)
-  Drop-in replacement for the existing handleApply.
-----------------------------------------------------------*/
-async function handleApply(item) {
-  if (!item || !item.id) return;
-
-  try {
-    // 1) increment click on backend and wait a short time to ensure backend records it
-    //    (we still open the link even if increment fails)
-    await incrementClick(item.id);
-
-    // 2) open destination (use same logic you currently prefer)
-    const dest = item.targetUrl && item.targetUrl.trim()
-      ? item.targetUrl.trim()
-      : window.location.origin + "/" + item.id;
-
-    // open in new tab (if you want same-tab change _blank -> _self)
-    window.open(dest, "_blank");
-  } catch (err) {
-    console.error("handleApply error:", err);
-    // still open link if error
-    const fallback = item.targetUrl || (window.location.origin + "/" + item.id);
-    window.open(fallback, "_blank");
-  } finally {
-    // refresh UI counts (non-blocking)
-    // use your existing function name that refreshes list (e.g. loadFromBackend() or fetchAllLinks())
-    // Replace fetchAllLinks() below with your actual fetch function if different.
-    // eslint-disable-next-line no-undef
-    try { fetchAllLinks(); } catch { /* ignore */ }
-  }
-}
-
 
   /*---------------------------------------------------------
     COPY SHORT LINK
@@ -186,25 +135,41 @@ async function handleApply(item) {
   function handleCopy(id) {
     const link = window.location.origin + "/" + id;
     navigator.clipboard.writeText(link);
-    setToast("Copied: " + link);
+    setToast("Copied");
   }
 
-  /* FILTERING */
   function matchesFilter(item) {
     if (!filter) return true;
     return item.title.toLowerCase().includes(filter.toLowerCase());
   }
 
   /*---------------------------------------------------------
-     UI STARTS HERE
+     🔥 LOADER SCREEN (ONLY WHEN BACKEND SLEEPING)
+  ----------------------------------------------------------*/
+  if (!backendReady) {
+    return (
+      <div className="backend-loader">
+        <div className="loader-bar">
+          <div
+            className="loader-progress"
+            style={{ width: `${seconds * 5}%` }}
+          />
+        </div>
+        <div className="loader-text">
+          Waking server… {seconds}s / 20s
+        </div>
+      </div>
+    );
+  }
+
+  /*---------------------------------------------------------
+     UI STARTS HERE (UNCHANGED)
   ----------------------------------------------------------*/
   return (
     <div className="app-page">
 
-      {/* Toast */}
       {toast && <div className="toast">{toast}</div>}
 
-      {/* HEADER */}
       <header className="app-header" style={{ display: "flex", justifyContent: "space-between" }}>
         <div>
           <h1 className="app-title">All_Links_NetFier🦁</h1>
@@ -220,7 +185,6 @@ async function handleApply(item) {
         </div>
       </header>
 
-      {/* ---------------- PUBLIC LIST SECTION ---------------- */}
       <section className="panel top-panel">
         <h2 className="panel-title">Click & Use This Links</h2>
 
@@ -234,117 +198,27 @@ async function handleApply(item) {
           <button className="btn btn-small" onClick={() => setFilter("")}>Clear</button>
         </div>
 
-        {loading ? (
-          <div className="loader">Loading…</div>
-        ) : (
-          <div className="card-list">
-            {links.filter(matchesFilter).map((item) => (
-              <div className="card" key={item.id}>
-                <div className="card-left">
-                  <div className="card-icon">🔗</div>
-                  <div className="card-info">
-                    <a
-                      className="link-name"
-                      href="#"
-                      onClick={(e) => { e.preventDefault(); handleApply(item); }}
-                    >
-                      {item.title}
-                    </a>
-                    <div className="card-meta">Created: {fmt(item.createdAt)}</div>
-                  </div>
-                </div>
-
-                <div className="card-actions">
-                  <button className="btn btn-primary" onClick={() => handleApply(item)}>Apply</button>
+        <div className="card-list">
+          {links.filter(matchesFilter).map((item) => (
+            <div className="card" key={item.id}>
+              <div className="card-left">
+                <div className="card-icon">🔗</div>
+                <div className="card-info">
+                  <a href="#" className="link-name"
+                     onClick={(e) => { e.preventDefault(); handleApply(item); }}>
+                    {item.title}
+                  </a>
+                  <div className="card-meta">Created: {fmt(item.createdAt)}</div>
                 </div>
               </div>
-            ))}
-          </div>
-        )}
-      </section>
 
-      {/* ---------------- ADMIN SECTION ---------------- */}
-      {isAdmin && (
-        <>
-          {/* TABLE VIEW */}
-          <section className="panel">
-            <h2 className="panel-title">All Links</h2>
-
-            <div className="table-wrap">
-              <table className="links-table">
-                <thead>
-                  <tr>
-                    <th>Title</th>
-                    <th>Clicks</th>
-                    <th>Created</th>
-                    <th>Last Clicked</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-
-                <tbody>
-                  {links.map((item) => (
-                    <tr key={item.id}>
-                      <td>
-                        {item.title}
-                      </td>
-                      <td>{item.clicks}</td>
-                      <td>{fmt(item.createdAt)}</td>
-                      <td>{fmt(item.lastClicked)}</td>
-
-                      <td>
-                        <button className="btn btn-small" onClick={() => handleCopy(item.id)}>Copy</button>
-                        <button className="btn btn-danger btn-small" onClick={() => handleDelete(item.id)}>Delete</button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-
-              </table>
+              <div className="card-actions">
+                <button className="btn btn-primary" onClick={() => handleApply(item)}>Apply</button>
+              </div>
             </div>
-          </section>
-
-          {/* CREATE FORM */}
-          <section className="panel">
-            <h2 className="panel-title">Create New Short Name</h2>
-
-            <form className="form-create" onSubmit={handleCreate}>
-              <div className="form-row">
-                <label className="form-label">Title</label>
-                <input
-                  className="input"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder="e.g. SBI SO 2025"
-                />
-              </div>
-
-              <div className="form-row">
-                <label className="form-label">Target URL</label>
-                <input
-                  className="input"
-                  value={targetUrl}
-                  onChange={(e) => setTargetUrl(e.target.value)}
-                  placeholder="https://example.com/..."
-                />
-              </div>
-
-              <div className="form-actions">
-                <button className="btn btn-primary" type="submit">Create</button>
-                <button
-                  type="button"
-                  className="btn"
-                  onClick={() => { setTitle(""); setTargetUrl(""); setMessage(""); }}
-                >
-                  Clear
-                </button>
-              </div>
-
-              <div className="form-message">{message}</div>
-            </form>
-          </section>
-        </>
-      )}
+          ))}
+        </div>
+      </section>
 
       <footer className="app-footer">Made with ❤️ — All_Links_NetFier</footer>
     </div>

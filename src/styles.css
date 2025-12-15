@@ -172,3 +172,39 @@ body{margin:0;font-family:Segoe UI, Roboto, Arial;background:var(--bg);color:#0b
   .btn, .btn-small { font-size:14px; padding:7px 10px; }
   .link-name { font-size:17px; }
 }
+
+/* ===============================
+   BACKEND WAKE-UP LOADER
+   =============================== */
+
+.backend-loader {
+  position: fixed;
+  inset: 0;
+  background: #1e1e1e;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
+.loader-bar {
+  width: 60%;
+  height: 6px;
+  background: #333;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+
+.loader-progress {
+  height: 100%;
+  background: #4da3ff;
+  transition: width 1s linear;
+}
+
+.loader-text {
+  color: #9ccaff;
+  font-size: 20px;
+  font-weight: 600;
+}
